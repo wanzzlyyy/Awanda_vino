@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <title>🚗  invisible car</title>
+
+  <style>
+
+    body {
+
+      margin: 0;
+
+      background-color: #000;
+
+      font-family: 'Segoe UI', sans-serif;
+
+      user-select: none;
+
+    }
+
+
+
+    #gameArea {
+
+      position: relative;
+
+      width: 400px;
+
+      height: 600px;
+
+      margin: 20px auto;
+
+      background: linear-gradient(#444, #111);
+
+      overflow: hidden;
+
+      border: 4px solid #fff;
+
+      box-shadow: 0 0 20px #0f0;
+
+    }
+
+
+
+    #startScreen, #gameOverScreen {
+
+      position: absolute;
+
+      width: 100%;
+
+      height: 100%;
+
+      background: rgba(0,0,0,0.8);
+
+      color: #fff;
+
+      display: flex;
+
+      flex-direction: column;
+
+      align-items: center;
+
+      justify-content: center;
+
+      font-size: 20px;
+
+      z-index: 10;
+
+      text-align: center;
+
+    }
+
+
+
+    #startBtn, #restartBtn {
+
+      padding: 10px 20px;
+
+      font-size: 18px;
+
+      background: #0f0;
+
+      color: #000;
+
+      border: none;
+
+      margin-top: 20px;
+
+      cursor: pointer;
+
+      border-radius: 8px;
+
+    }
+
+
+
+    #scoreBoard {
+
+      position: absolute;
+
+      top: 10px;
+
+      left: 10px;
+
+      color: #fff;
+
+      z-index: 5;
+
+    }
+
+
+
+    .car, .enemy {
+
+      width: 50px;
+
+      height: 100px;
+
+      position: absolute;
+
+      border-radius: 10px;
+
+    }
+
+
+
+    .car {
+
+      background: linear-gradient(#f00, #900);
+
+      box-shadow: 0 0 10px #f00;
+
+      bottom: 10px;
+
+      left: 175px;
+
+    }
+
+
+
+    .enemy {
+
+      background: linear-gradient(#ff0, #cc0);
+
+      box-shadow: 0 0 10px #ff0;
+
+      top: 0;
+
+    }
+
+
+
+    .road-line {
+
+      position: absolute;
+
+      width: 10px;
+
+      height: 80px;
+
+      background: #fff;
+
+      left: 195px;
+
+      animation: moveLine 1s linear infinite;
+
+    }
+
+
+
+    @keyframes moveLine {
+
+      0% { top: -80px; }
+
+      100% { top: 600px; }
+
+    }
+
+
+
+    /* Kontrol sentuh */
+
+    .touch-control {
+
+      display: none;
+
+    }
+
+
+
+    @media (max-width: 600px) {
+
+      #gameArea {
+
+        width: 100%;
+
+        height: 80vh;
+
+      }
+
+      .touch-control {
+
+        display: flex;
+
+        justify-content: space-around;
+
+        padding: 10px;
+
+        background: #222;
+
+        color: #fff;
+
+      }
+
+      .touch-btn {
+
+        font-size: 30px;
+
+        background: #444;
+
+        border: 2px solid #fff;
+
+        border-radius: 10px;
+
+        padding: 10px 30px;
+
+        cursor: pointer;
+
+      }
+
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+
+
+<div id="gameArea">
+
+  <div id="startScreen">
+
+    <h1>🚗 invisible car</h1>
+
+    <p>Gunakan panah kiri/kanan atau tombol di layar</p>
+
+    <button id="startBtn">Mulai</button>
+
+  </div>
+
+
+
+  <div id="gameOverScreen" style="display:none;">
+
+    <h2>💥 Game Over</h2>
+
+    <p id="finalScore"></p>
+
+    <p id="highScore"></p>
+
+    <button id="restartBtn">Main Lagi</button>
+
+  </div>
+
+
+
+  <div id="scoreBoard">Score: 0</div>
+
+  <div id="player" class="car"></div>
+
+</div>
+
+
+
+<div class="touch-control">
+
+  <button class="touch-btn" id="leftBtn">⬅️</button>
+
+  <button class="touch-btn" id="rightBtn">➡️</button>
+
+</div>
+
+
+
+<audio id="crashSound" src="https://www.soundjay.com/mechanical/sounds/crash-01.mp3"></audio>
+
+<audio id="bgMusic" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop></audio>
+
+
+
+<script>
+
+  const player = document.getElementById("player");
+
+  const gameArea = document.getElementById("gameArea");
+
+  const scoreBoard = document.getElementById("scoreBoard");
+
+  const crashSound = document.getElementById("crashSound");
+
+  const bgMusic = document.getElementById("bgMusic");
+
+  const startScreen = document.getElementById("startScreen");
+
+  const gameOverScreen = document.getElementById("gameOverScreen");
+
+  const finalScore = document.getElementById("finalScore");
+
+  const highScoreText = document.getElementById("highScore");
+
+
+
+  let playerX = 175;
+
+  let enemies = [];
+
+  let score = 0;
+
+  let gameRunning = false;
+
+
+
+  let moveInterval;
+
+  let enemyInterval;
+
+  let scoreInterval;
+
+  let lineInterval;
+
+
+
+  document.getElementById("startBtn").onclick = () => {
+
+    startScreen.style.display = "none";
+
+    bgMusic.volume = 0.3;
+
+    bgMusic.play();
+
+    startGame();
+
+  };
+
+
+
+  document.getElementById("restartBtn").onclick = () => location.reload();
+
+
+
+  // Keyboard
+
+  document.addEventListener("keydown", e => {
+
+    if (!gameRunning) return;
+
+    if (e.key === "ArrowLeft" && playerX > 0) playerX -= 25;
+
+    if (e.key === "ArrowRight" && playerX < 350) playerX += 25;
+
+    player.style.left = playerX + "px";
+
+  });
+
+
+
+  // Sentuh
+
+  document.getElementById("leftBtn").onclick = () => {
+
+    if (playerX > 0) playerX -= 25;
+
+    player.style.left = playerX + "px";
+
+  };
+
+  document.getElementById("rightBtn").onclick = () => {
+
+    if (playerX < 350) playerX += 25;
+
+    player.style.left = playerX + "px";
+
+    document.getElementById("backBtn").addEventListener("click", function() {
+
+    window.location.replace("halamanGame.html");
+
+});
+
+
+
+  };
+
+
+
+  function createEnemy() {
+
+    const enemy = document.createElement("div");
+
+    enemy.classList.add("enemy");
+
+    enemy.style.left = Math.floor(Math.random() * 8) * 50 + "px";
+
+    enemy.style.top = "0px";
+
+    gameArea.appendChild(enemy);
+
+    enemies.push(enemy);
+
+  }
+
+
+
+  function createRoadLine() {
+
+    const line = document.createElement("div");
+
+    line.classList.add("road-line");
+
+    line.style.top = "-80px";
+
+    gameArea.appendChild(line);
+
+    setTimeout(() => gameArea.removeChild(line), 1000);
+
+  }
+
+
+
+  function updateGame() {
+
+    for (let i = enemies.length - 1; i >= 0; i--) {
+
+      const enemy = enemies[i];
+
+      let top = parseInt(enemy.style.top);
+
+      top += 5;
+
+      enemy.style.top = top + "px";
+
+
+
+      if (top > 600) {
+
+        gameArea.removeChild(enemy);
+
+        enemies.splice(i, 1);
+
+      }
+
+
+
+      const px = player.offsetLeft;
+
+      const py = player.offsetTop;
+
+      const ex = enemy.offsetLeft;
+
+      const ey = parseInt(enemy.style.top);
+
+
+
+      if (ex < px + 50 && ex + 50 > px && ey < py + 100 && ey + 100 > py) {
+
+        crashSound.play();
+
+        endGame();
+
+      }
+
+    }
+
+  }
+
+
+
+  function startGame() {
+
+    gameRunning = true;
+
+    moveInterval = setInterval(updateGame, 20);
+
+    enemyInterval = setInterval(createEnemy, 1000);
+
+    lineInterval = setInterval(createRoadLine, 300);
+
+    scoreInterval = setInterval(() => {
+
+      score++;
+
+      scoreBoard.textContent = "Score: " + score;
+
+    }, 1000);
+
+  }
+
+
+
+  function endGame() {
+
+    gameRunning = false;
+
+    clearInterval(moveInterval);
+
+    clearInterval(enemyInterval);
+
+    clearInterval(scoreInterval);
+
+    clearInterval(lineInterval);
+
+    bgMusic.pause();
+
+
+
+    finalScore.textContent = `Skor Kamu: ${score}`;
+
+
+
+    let high = localStorage.getItem("highScore") || 0;
+
+    if (score > high) {
+
+      localStorage.setItem("highScore", score);
+
+      high = score;
+
+    }
+
+
+
+    highScoreText.textContent = `🏆 High Score: ${high}`;
+
+    gameOverScreen.style.display = "flex";
+
+  }
+
+
+
+</script>
+
+</body
